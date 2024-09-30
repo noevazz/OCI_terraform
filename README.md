@@ -627,7 +627,7 @@ In this example we are going to split the configuration into multiple files.
 
 1. Create the files:
 
-```HCL
+```
 yourtenancyname@cloudshell:~ $ cd ~
 yourtenancyname@cloudshell:~ $ mkdir example2
 yourtenancyname@cloudshell:~ $ cd example2/
@@ -700,7 +700,7 @@ resource "oci_core_vcn" "vcn01" {
 
 3. Init
 
-```HCL
+```
 yourtenancyname@cloudshell:~/example2 $ terraform init
 
 Initializing the backend...
@@ -733,7 +733,7 @@ yourtenancyname@cloudshell:~/example2 $
 
 4. Plan
 
-```HCL
+```
 yourtenancyname@cloudshell:~/example2 $ terraform plan
 
 Terraform used the selected providers to generate the following execution plan. Resource actions are indicated with the following symbols:
@@ -774,7 +774,7 @@ yourtenancyname@cloudshell:~/example2 $
 
 5. Apply
 
-```HCL
+```
 yourtenancyname@cloudshell:~/example2 $ terraform apply
 
 Terraform used the selected providers to generate the following execution plan. Resource actions are indicated with the following symbols:
