@@ -927,9 +927,9 @@ In these example we are going to create a module and reuse it.
 ├── main.tf
 ├── terraform.tfvars
 ├── variables.tf
+├── providers.tf
 └── vcn_module
     ├── main.tf
-    ├── outputs.tf
     └── variables.tf
 ```
 
@@ -937,9 +937,9 @@ In these example we are going to create a module and reuse it.
 
 ```
 yourtenancyname@cloudshell:~ $ cd ~ ; mkdir example3 ; cd example3
-yourtenancyname@cloudshell:~/example3 $ touch main.tf terraform.tfvars variables.tf
+yourtenancyname@cloudshell:~/example3 $ touch main.tf terraform.tfvars variables.tf providers.tf
 yourtenancyname@cloudshell:~/example3 $ mkdir vcn_module ; cd vcn_module/
-yourtenancyname@cloudshell:~/example3/vcn_module $ touch main.tf outputs.tf variables.tf
+yourtenancyname@cloudshell:~/example3/vcn_module $ touch main.tf variables.tf
 ```
 
 ```
@@ -949,9 +949,423 @@ example3
 example3/main.tf
 example3/terraform.tfvars
 example3/variables.tf
+example3/providers.tf
 example3/vcn_module
 example3/vcn_module/main.tf
-example3/vcn_module/outputs.tf
 example3/vcn_module/variables.tf
 yourtenancyname@cloudshell:~ $ 
+```
+
+2. Edit files in the `vcn_module`:
+
+`example3/vcn_module/main.tf`:
+
+```HCL
+resource "oci_core_vcn" "vcnTemplate" {
+    dns_label      = "internal"
+    cidr_block     = var.vcn01_cidr_block
+    compartment_id = var.compartment_ocid
+    display_name   = var.vcn01_display_name
+}
+```
+
+`example3/vcn_module/variables.tf`
+
+```HCL
+variable "vcn01_cidr_block" {}
+variable "compartment_ocid" {}
+variable "vcn01_display_name" {}
+```
+
+3. Edit the files at the root level:
+
+`example3/main.tf`:
+
+```HCL
+module "vcn01" {
+    source = "./vcn_module"
+    compartment_ocid   = var.compartment_ocid
+    vcn01_cidr_block   = var.vcn01_cidr_block
+    vcn01_display_name = var.vcn01_display_name
+}
+
+module "vcn02" {
+    source = "./vcn_module"
+    compartment_ocid   = var.compartment_ocid
+    # this time I will use static values:
+    vcn01_cidr_block   = "10.2.0.0/16"
+    vcn01_display_name = "vcn02"
+}
+```
+
+`example3/terraform.tfvars`
+
+```HCL
+region             = "us-sanjose-1"
+compartment_ocid   = "ocid1.tenancy.oc1..blablabla"
+vcn01_cidr_block   = "10.1.0.0/16"
+vcn01_display_name = "vcn01"
+```
+
+`example3/variables.tf`:
+
+```HCL
+variable "region" {
+    description = "region where you have OCI tenancy"
+    type = string
+    default = "us-sanjose-1"
+}
+variable "compartment_ocid" {}
+variable "vcn01_cidr_block" {}
+variable "vcn01_display_name" {}
+```
+
+`example3/providers.tf`
+
+```HCL
+terraform {
+    required_providers {
+        oci = {
+            source = "oracle/oci"
+        }
+    }
+}
+
+provider "oci" {
+    # tenancy_ocid = "value here"
+    # user_ocid = "value here"
+    # private_key_path = "value here"
+    # fingerprint = "value here"
+    region = var.region
+}
+```
+
+4. Execute with terraform
+
+```
+yourtenancyname@cloudshell:~ $ cd example3
+yourtenancyname@cloudshell:~/example3 $ terraform init
+
+Initializing the backend...
+Initializing modules...
+- vcn01 in vcn_module
+- vcn02 in vcn_module
+
+Initializing provider plugins...
+- Finding latest version of oracle/oci...
+- Finding latest version of hashicorp/oci...
+- Installing oracle/oci v6.11.0...
+- Installed oracle/oci v6.11.0 (signed by a HashiCorp partner, key ID 6C63B40Q73117CEW)
+- Installing hashicorp/oci v6.10.0...
+- Installed hashicorp/oci v6.10.0 (unauthenticated)
+
+Partner and community providers are signed by their developers.
+If you'd like to know more about provider signing, you can read about it here:
+https://www.terraform.io/docs/cli/plugins/signing.html
+
+Terraform has created a lock file .terraform.lock.hcl to record the provider
+selections it made above. Include this file in your version control repository
+so that Terraform can guarantee to make the same selections by default when
+you run "terraform init" in the future.
+
+╷
+│ Warning: Incomplete lock file information for providers
+│ 
+│ Due to your customized provider installation methods, Terraform was forced to calculate lock file checksums locally for the following providers:
+│   - hashicorp/oci
+│ 
+│ The current .terraform.lock.hcl file only includes checksums for linux_arm64, so Terraform running on another platform will fail to install these providers.
+│ 
+│ To calculate additional checksums for another platform, run:
+│   terraform providers lock -platform=linux_amd64
+│ (where linux_amd64 is the platform to generate)
+╵
+
+Terraform has been successfully initialized!
+
+You may now begin working with Terraform. Try running "terraform plan" to see
+any changes that are required for your infrastructure. All Terraform commands
+should now work.
+
+If you ever set or change modules or backend configuration for Terraform,
+rerun this command to reinitialize your working directory. If you forget, other
+commands will detect it and remind you to do so if necessary.
+```
+
+```
+yourtenancyname@cloudshell:~/example3 $ terraform plan
+
+Terraform used the selected providers to generate the following execution plan. Resource actions are indicated with the following symbols:
+  + create
+
+Terraform will perform the following actions:
+
+  # module.vcn01.oci_core_vcn.vcnTemplate will be created
+  + resource "oci_core_vcn" "vcnTemplate" {
+      + byoipv6cidr_blocks               = (known after apply)
+      + cidr_block                       = "10.1.0.0/16"
+      + cidr_blocks                      = (known after apply)
+      + compartment_id                   = "ocid1.tenancy.oc1..blablabla"
+      + default_dhcp_options_id          = (known after apply)
+      + default_route_table_id           = (known after apply)
+      + default_security_list_id         = (known after apply)
+      + defined_tags                     = (known after apply)
+      + display_name                     = "vcn01"
+      + dns_label                        = "internal"
+      + freeform_tags                    = (known after apply)
+      + id                               = (known after apply)
+      + ipv6cidr_blocks                  = (known after apply)
+      + ipv6private_cidr_blocks          = (known after apply)
+      + is_ipv6enabled                   = (known after apply)
+      + is_oracle_gua_allocation_enabled = (known after apply)
+      + state                            = (known after apply)
+      + time_created                     = (known after apply)
+      + vcn_domain_name                  = (known after apply)
+    }
+
+  # module.vcn02.oci_core_vcn.vcnTemplate will be created
+  + resource "oci_core_vcn" "vcnTemplate" {
+      + byoipv6cidr_blocks               = (known after apply)
+      + cidr_block                       = "10.2.0.0/16"
+      + cidr_blocks                      = (known after apply)
+      + compartment_id                   = "ocid1.tenancy.oc1..blablabla"
+      + default_dhcp_options_id          = (known after apply)
+      + default_route_table_id           = (known after apply)
+      + default_security_list_id         = (known after apply)
+      + defined_tags                     = (known after apply)
+      + display_name                     = "vcn02"
+      + dns_label                        = "internal"
+      + freeform_tags                    = (known after apply)
+      + id                               = (known after apply)
+      + ipv6cidr_blocks                  = (known after apply)
+      + ipv6private_cidr_blocks          = (known after apply)
+      + is_ipv6enabled                   = (known after apply)
+      + is_oracle_gua_allocation_enabled = (known after apply)
+      + state                            = (known after apply)
+      + time_created                     = (known after apply)
+      + vcn_domain_name                  = (known after apply)
+    }
+
+Plan: 2 to add, 0 to change, 0 to destroy.
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────��───────────────────────────
+
+Note: You didn't use the -out option to save this plan, so Terraform can't guarantee to take exactly these actions if you run "terraform apply" now.
+```
+
+```
+yourtenancyname@cloudshell:~/example3 $ terraform apply
+
+Terraform used the selected providers to generate the following execution plan. Resource actions are indicated with the following symbols:
+  + create
+
+Terraform will perform the following actions:
+
+  # module.vcn01.oci_core_vcn.vcnTemplate will be created
+  + resource "oci_core_vcn" "vcnTemplate" {
+      + byoipv6cidr_blocks               = (known after apply)
+      + cidr_block                       = "10.1.0.0/16"
+      + cidr_blocks                      = (known after apply)
+      + compartment_id                   = "ocid1.tenancy.oc1..blablabla"
+      + default_dhcp_options_id          = (known after apply)
+      + default_route_table_id           = (known after apply)
+      + default_security_list_id         = (known after apply)
+      + defined_tags                     = (known after apply)
+      + display_name                     = "vcn01"
+      + dns_label                        = "internal"
+      + freeform_tags                    = (known after apply)
+      + id                               = (known after apply)
+      + ipv6cidr_blocks                  = (known after apply)
+      + ipv6private_cidr_blocks          = (known after apply)
+      + is_ipv6enabled                   = (known after apply)
+      + is_oracle_gua_allocation_enabled = (known after apply)
+      + state                            = (known after apply)
+      + time_created                     = (known after apply)
+      + vcn_domain_name                  = (known after apply)
+    }
+
+  # module.vcn02.oci_core_vcn.vcnTemplate will be created
+  + resource "oci_core_vcn" "vcnTemplate" {
+      + byoipv6cidr_blocks               = (known after apply)
+      + cidr_block                       = "10.2.0.0/16"
+      + cidr_blocks                      = (known after apply)
+      + compartment_id                   = "ocid1.tenancy.oc1..blablabla"
+      + default_dhcp_options_id          = (known after apply)
+      + default_route_table_id           = (known after apply)
+      + default_security_list_id         = (known after apply)
+      + defined_tags                     = (known after apply)
+      + display_name                     = "vcn02"
+      + dns_label                        = "internal"
+      + freeform_tags                    = (known after apply)
+      + id                               = (known after apply)
+      + ipv6cidr_blocks                  = (known after apply)
+      + ipv6private_cidr_blocks          = (known after apply)
+      + is_ipv6enabled                   = (known after apply)
+      + is_oracle_gua_allocation_enabled = (known after apply)
+      + state                            = (known after apply)
+      + time_created                     = (known after apply)
+      + vcn_domain_name                  = (known after apply)
+    }
+
+Plan: 2 to add, 0 to change, 0 to destroy.
+
+Do you want to perform these actions?
+  Terraform will perform the actions described above.
+  Only 'yes' will be accepted to approve.
+
+  Enter a value: yes
+
+module.vcn01.oci_core_vcn.vcnTemplate: Creating...
+module.vcn02.oci_core_vcn.vcnTemplate: Creating...
+module.vcn01.oci_core_vcn.vcnTemplate: Creation complete after 1s [id=ocid1.vcn.oc1.us-sanjose-1.blablabla]
+module.vcn02.oci_core_vcn.vcnTemplate: Creation complete after 1s [id=ocid1.vcn.oc1.us-sanjose-1.blablabla]
+
+Apply complete! Resources: 2 added, 0 changed, 0 destroyed.
+yourtenancyname@cloudshell:~/example3 $ 
+```
+
+Check:
+
+```
+yourtenancyname@cloudshell:~/example3 $ oci network vcn list --compartment-id ocid1.tenancy.oc1..blablabla
+{
+  "data": [
+    {
+      "byoipv6-cidr-blocks": null,
+      "cidr-block": "10.2.0.0/16",
+      "cidr-blocks": [
+        "10.2.0.0/16"
+      ],
+      "compartment-id": "ocid1.tenancy.oc1..blablabla",
+      "default-dhcp-options-id": "ocid1.dhcpoptions.oc1.us-sanjose-1.blablabla",
+      "default-route-table-id": "ocid1.routetable.oc1.us-sanjose-1.blablabla",
+      "default-security-list-id": "ocid1.securitylist.oc1.us-sanjose-1.blablabla",
+      "defined-tags": {
+        "Oracle-Tags": {
+          "CreatedBy": "default/yourtenancyname@gmail.com",
+          "CreatedOn": "2024-09-30T16:25:04.240Z"
+        }
+      },
+      "display-name": "vcn02",
+      "dns-label": "internal",
+      "freeform-tags": {},
+      "id": "ocid1.vcn.oc1.us-sanjose-1.blablabla",
+      "ipv6-cidr-blocks": null,
+      "ipv6-private-cidr-blocks": null,
+      "lifecycle-state": "AVAILABLE",
+      "time-created": "2024-09-30T16:25:04.436000+00:00",
+      "vcn-domain-name": "internal.oraclevcn.com"
+    },
+    {
+      "byoipv6-cidr-blocks": null,
+      "cidr-block": "10.1.0.0/16",
+      "cidr-blocks": [
+        "10.1.0.0/16"
+      ],
+      "compartment-id": "ocid1.tenancy.oc1..blablabla",
+      "default-dhcp-options-id": "ocid1.dhcpoptions.oc1.us-sanjose-1.blablabla",
+      "default-route-table-id": "ocid1.routetable.oc1.us-sanjose-1.blablabla",
+      "default-security-list-id": "ocid1.securitylist.oc1.us-sanjose-1.blablabla",
+      "defined-tags": {
+        "Oracle-Tags": {
+          "CreatedBy": "default/yourtenancyname@gmail.com",
+          "CreatedOn": "2024-09-30T16:25:04.236Z"
+        }
+      },
+      "display-name": "vcn01",
+      "dns-label": "internal",
+      "freeform-tags": {},
+      "id": "ocid1.vcn.oc1.us-sanjose-1.blablabla",
+      "ipv6-cidr-blocks": null,
+      "ipv6-private-cidr-blocks": null,
+      "lifecycle-state": "AVAILABLE",
+      "time-created": "2024-09-30T16:25:04.348000+00:00",
+      "vcn-domain-name": "internal.oraclevcn.com"
+    }
+  ]
+}
+yourtenancyname@cloudshell:~/example3 $ 
+```
+
+Finally, destroy:
+
+```
+yourtenancyname@cloudshell:~/example3 $ terraform destroy
+module.vcn01.oci_core_vcn.vcnTemplate: Refreshing state... [id=ocid1.vcn.oc1.us-sanjose-1.blablabla]
+module.vcn02.oci_core_vcn.vcnTemplate: Refreshing state... [id=ocid1.vcn.oc1.us-sanjose-1.blablabla]
+
+Terraform used the selected providers to generate the following execution plan. Resource actions are indicated with the following symbols:
+  - destroy
+
+Terraform will perform the following actions:
+
+  # module.vcn01.oci_core_vcn.vcnTemplate will be destroyed
+  - resource "oci_core_vcn" "vcnTemplate" {
+      - byoipv6cidr_blocks       = [] -> null
+      - cidr_block               = "10.1.0.0/16" -> null
+      - cidr_blocks              = [
+          - "10.1.0.0/16",
+        ] -> null
+      - compartment_id           = "ocid1.tenancy.oc1..blablabla" -> null
+      - default_dhcp_options_id  = "ocid1.dhcpoptions.oc1.us-sanjose-1.blablabla" -> null
+      - default_route_table_id   = "ocid1.routetable.oc1.us-sanjose-1.blablabla" -> null
+      - default_security_list_id = "ocid1.securitylist.oc1.us-sanjose-1.blablabla" -> null
+      - defined_tags             = {
+          - "Oracle-Tags.CreatedBy" = "default/yourtenancyname@gmail.com"
+          - "Oracle-Tags.CreatedOn" = "2024-09-30T16:25:04.236Z"
+        } -> null
+      - display_name             = "vcn01" -> null
+      - dns_label                = "internal" -> null
+      - freeform_tags            = {} -> null
+      - id                       = "ocid1.vcn.oc1.us-sanjose-1.blablabla" -> null
+      - ipv6cidr_blocks          = [] -> null
+      - ipv6private_cidr_blocks  = [] -> null
+      - is_ipv6enabled           = false -> null
+      - state                    = "AVAILABLE" -> null
+      - time_created             = "2024-09-30 16:25:04.348 +0000 UTC" -> null
+      - vcn_domain_name          = "internal.oraclevcn.com" -> null
+    }
+
+  # module.vcn02.oci_core_vcn.vcnTemplate will be destroyed
+  - resource "oci_core_vcn" "vcnTemplate" {
+      - byoipv6cidr_blocks       = [] -> null
+      - cidr_block               = "10.2.0.0/16" -> null
+      - cidr_blocks              = [
+          - "10.2.0.0/16",
+        ] -> null
+      - compartment_id           = "ocid1.tenancy.oc1..blablabla" -> null
+      - default_dhcp_options_id  = "ocid1.dhcpoptions.oc1.us-sanjose-1.blablabla" -> null
+      - default_route_table_id   = "ocid1.routetable.oc1.us-sanjose-1.blablabla" -> null
+      - default_security_list_id = "ocid1.securitylist.oc1.us-sanjose-1.blablabla" -> null
+      - defined_tags             = {
+          - "Oracle-Tags.CreatedBy" = "default/yourtenancyname@gmail.com"
+          - "Oracle-Tags.CreatedOn" = "2024-09-30T16:25:04.240Z"
+        } -> null
+      - display_name             = "vcn02" -> null
+      - dns_label                = "internal" -> null
+      - freeform_tags            = {} -> null
+      - id                       = "ocid1.vcn.oc1.us-sanjose-1.blablabla" -> null
+      - ipv6cidr_blocks          = [] -> null
+      - ipv6private_cidr_blocks  = [] -> null
+      - is_ipv6enabled           = false -> null
+      - state                    = "AVAILABLE" -> null
+      - time_created             = "2024-09-30 16:25:04.436 +0000 UTC" -> null
+      - vcn_domain_name          = "internal.oraclevcn.com" -> null
+    }
+
+Plan: 0 to add, 0 to change, 2 to destroy.
+
+Do you really want to destroy all resources?
+  Terraform will destroy all your managed infrastructure, as shown above.
+  There is no undo. Only 'yes' will be accepted to confirm.
+
+  Enter a value: yes
+
+module.vcn01.oci_core_vcn.vcnTemplate: Destroying... [id=ocid1.vcn.oc1.us-sanjose-1.blablabla]
+module.vcn02.oci_core_vcn.vcnTemplate: Destroying... [id=ocid1.vcn.oc1.us-sanjose-1.blablabla]
+module.vcn01.oci_core_vcn.vcnTemplate: Destruction complete after 1s
+module.vcn02.oci_core_vcn.vcnTemplate: Destruction complete after 1s
+
+Destroy complete! Resources: 2 destroyed.
+yourtenancyname@cloudshell:~/example3 $ 
 ```
