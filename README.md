@@ -46,6 +46,63 @@ output "show-ads" {
 
 *You don't need to understand this code right now.*
 
+Terraform uses files with the `.tf` extension to contain HCL code. These files define resources, providers, variables, and other configurations needed for infrastructure deployment.
+
+### HCL Syntax
+
+1. Blocks: Blocks are the main structure in HCL. They define a resource or configuration element.
+
+    ```HCL
+    block_type "name" {
+      # configuration
+    }
+    ```
+
+2. Arguments: Inside blocks, you specify arguments that configure the resource. Arguments are defined as key-value pairs.
+
+    ```HCL
+    instance_type = "t2.micro"
+    ```
+
+3. Variables: Variables allow you to parameterize your configuration, making it reusable.
+
+    ```HCL
+    variable "var_name" {
+      default = "value"
+    }
+    ```
+
+4. Outputs: Outputs allow you to extract information from your configuration after resources are created.
+
+    ```HCL
+    output "output_name" {
+      value = resource_type.resource_name.attribute
+    }
+    ```
+
+5. Comments: Use `#` for single-line comments or `/* comment */` for block comments.
+
+    ```HCL
+    # This is a comment
+    ```
+
+6. Lists and Maps.
+
+    Lists: Defined using square brackets.
+
+    ```HCL
+    tags = ["web", "production"]
+    ```
+
+    Maps: Defined using curly braces
+
+    ```HCL
+    tags = {
+      Name        = "MyInstance"
+      Environment = "Production"
+    }
+    ```
+
 ## Terraform Commands
 
 `terraform -help`
@@ -287,6 +344,16 @@ provider {
     region           = "value here"
 }
 ```
+
+### The Terraform Block
+
+`terraform { ... }`: This is the main block that defines the Terraform configuration in your file. Inside it, you can specify various settings related to the Terraform environment.
+
+`required_providers { ... }`: This is a sub-block within the terraform block. Here, you declare the providers that Terraform needs to interact with different infrastructure APIs. In this case, it’s declaring a specific provider for Oracle Cloud Infrastructure (OCI).
+
+`oci = { ... }`: Within required_providers, you define a specific provider, in this case, oci.
+
+`source = "oracle/oci"`: This line specifies the source of the provider. It indicates that the OCI provider will be sourced from the official Terraform registry, specifically from the oracle namespace.
 
 ## Resources
 
